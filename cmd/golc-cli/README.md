@@ -2,6 +2,14 @@
 
 A lightweight command-line wrapper around GoLC's analysis engine. Produces formatted terminal output similar to [scc](https://github.com/boyter/scc).
 
+## Why this exists
+
+Our organisation uses Sonar for code scanning and needs a practical way to estimate lines of code for onboarding projects before they are fully brought into the platform. In practice, we found GoLC to be the closest available approximation, with some remaining margin of error, for the LOC Sonar is likely to count and bill against.
+
+The upstream GoLC project is geared around its existing web-based flow and does not currently provide a simple CLI entry point for the `golc [directory]` workflow we need. This wrapper was added to make local directory analysis usable from the command line.
+
+All custom changes were intentionally added in a non-interfering way: new CLI files live under `cmd/golc-cli`, CI was added as a separate workflow, and the upstream project files remain untouched where possible. That keeps it straightforward to continue accepting upstream changes and PRs from the original Sonar repository so this fork stays aligned with Sonar's behaviour over time.
+
 ## Install
 
 ```bash
