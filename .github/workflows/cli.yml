@@ -1,0 +1,93 @@
+name: CLI Build & Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "Makefile"
+      - ".github/workflows/cli.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run package tests
+        run: go test ./pkg/...
+
+      - name: Run CLI tests
+        run: go test ./cmd/...
+
+      - name: Build CLI binary
+        run: make build
+
+      - name: Smoke test — scan a directory
+        run: |
+          ./bin/golc ./pkg > output.txt 2>&1
+          echo "--- Output ---"
+          cat output.txt
+          grep -q "Total" output.txt || { echo "FAIL: no Total row in output"; exit 1; }
+          grep -q "Golang" output.txt || { echo "FAIL: no Golang detected"; exit 1; }
+
+      - name: Smoke test — current directory
+        run: |
+          ./bin/golc . > output.txt 2>&1
+          grep -q "Total" output.txt
+
+      - name: Smoke test — nonexistent directory fails
+        run: |
+          if ./bin/golc /nonexistent 2>/dev/null; then
+            echo "FAIL: expected non-zero exit"; exit 1
+          fi
+
+  cross-compile:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Build all platforms
+        run: make build-all
+
+      - name: Verify binaries exist
+        run: |
+          ls -lh bin/
+          test -f bin/golc-linux-amd64
+          test -f bin/golc-linux-arm64
+          test -f bin/golc-darwin-amd64
+          test -f bin/golc-darwin-arm64
+          test -f bin/golc-windows-amd64.exe
+          test -f bin/golc-windows-arm64.exe
